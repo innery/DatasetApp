@@ -1,38 +1,29 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Atık Veri Yükleyici</title>
-
-  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .fade-in { animation: fadeIn 0.3s ease-in-out; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    .fade-in{animation:fade .25s ease} @keyframes fade{from{opacity:.0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
   </style>
 </head>
-<body class="bg-gray-50 text-gray-900 flex items-center justify-center min-h-screen">
-
+<body class="bg-gray-50 text-gray-900 min-h-screen flex items-center justify-center">
   <div class="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md fade-in">
     <h1 class="text-2xl font-bold text-center mb-2 text-blue-600">Atık Veri Yükleyici</h1>
     <p class="text-center text-gray-500 mb-6">Supabase üzerinden sınıf bazlı fotoğraf yükleme</p>
 
-    <!-- Upload Kodu -->
     <label class="block mb-3">
       <span class="font-semibold text-gray-700">Takım İçi Şifre</span>
-      <input id="pass" type="password" placeholder="Upload kodu" 
+      <input id="pass" type="password" placeholder="Upload kodu"
              class="mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none" />
     </label>
 
-    <!-- Grid -->
     <div class="grid grid-cols-2 gap-4">
       <label class="block">
         <span class="font-semibold text-gray-700">Sınıf Seç</span>
-        <select id="cls" 
+        <select id="cls"
           class="mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none">
           <option>paper</option><option>plastic</option><option>glass</option><option>metal</option>
           <option>organic</option><option>non_recyclable</option><option>food</option><option>bread</option>
@@ -45,65 +36,63 @@
       </label>
     </div>
 
-    <!-- Yükle Butonu -->
     <button id="btn"
       class="mt-6 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
       📤 Yükle
     </button>
 
-    <!-- Durum Alanı -->
     <div id="status" class="hidden mt-4 text-sm font-medium text-center rounded-lg p-3"></div>
   </div>
 
-  <!-- Supabase -->
-  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-  <script>
-    // Supabase bilgilerin
-    const SUPABASE_URL = "https://nfkkvmnyjmefdwqjbqsl.supabase.co";
+  <!-- ESM import: global 'supabase' yerine modül kullanıyoruz -->
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    // === Senin ayarların ===
+    const SUPABASE_URL  = "https://nfkkvmnyjmefdwqjbqsl.supabase.co";
     const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ma2t2bW55am1lZmR3cWpicXNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MTQ0NTEsImV4cCI6MjA3NzM5MDQ1MX0.M0aGFVDb_OqiAyp1t8j2RWt5pfG1wgl7pjSG879j1Jg";
     const TEAM_UPLOAD_CODE = "12345";
-    const BUCKET_NAME = "Dataset"; // harfler tam paneldekiyle aynı olmalı
+    const BUCKET_NAME = "Dataset"; // Supabase panelindeki adla %100 aynı olsun
 
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-    const statusEl = document.getElementById("status");
-    function showStatus(type, msg){
+    const $ = (id)=>document.getElementById(id);
+    const statusEl = $("status");
+    function showStatus(type,msg){
       statusEl.classList.remove("hidden");
       statusEl.className = `mt-4 text-sm font-medium text-center rounded-lg p-3 fade-in ${
         type==="ok" ? "bg-green-100 text-green-800" :
         type==="err" ? "bg-red-100 text-red-800" :
-        "bg-blue-100 text-blue-800"
-      }`;
+                       "bg-blue-100 text-blue-800"}`
       statusEl.innerHTML = msg;
     }
+    function ts(){const d=new Date(),p=n=>String(n).padStart(2,"0");
+      return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());}
 
-    function ts() {
-      const d = new Date();
-      const pad = n => String(n).padStart(2,"0");
-      return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
-    }
-
-    document.getElementById("btn").onclick = async () => {
-      const pwd = document.getElementById("pass").value.trim();
+    $("btn").onclick = async () => {
+      const pwd = $("pass").value.trim();
       if(pwd !== TEAM_UPLOAD_CODE){ showStatus("err","❌ Hatalı şifre."); return; }
 
-      const file = document.getElementById("file").files[0];
+      const file = $("file").files[0];
       if(!file){ showStatus("err","❌ Lütfen bir fotoğraf seç."); return; }
 
       const ext = file.name.split(".").pop().toLowerCase();
       if(!["jpg","jpeg","png","webp"].includes(ext)){ showStatus("err","❌ Sadece jpg/jpeg/png/webp yükleyin."); return; }
 
-      const cls = document.getElementById("cls").value;
+      const cls = $("cls").value;
       const rand = Math.random().toString(36).slice(2,7);
       const path = `${cls}/${cls}_${ts()}_${rand}.${ext}`;
 
       showStatus("load","⏳ Yükleniyor...");
-      const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(path, file);
+      try{
+        const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(path, file, { upsert:false });
+        if(error){ showStatus("err", "❌ Hata: "+error.message); return; }
 
-      if(error){ showStatus("err","❌ Hata: " + error.message); return; }
-
-      const { data: pub } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
-      showStatus("ok",`✅ <b>Yüklendi!</b><br><a href="${pub.publicUrl}" target="_blank" class="underline">${pub.publicUrl}</a>`);
+        const { data: pub } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+        showStatus("ok", `✅ <b>Yüklendi!</b><br><a href="${pub.publicUrl}" target="_blank" class="underline">${pub.publicUrl}</a>`);
+      }catch(e){
+        showStatus("err","❌ Beklenmeyen hata: "+e.message);
+      }
     };
   </script>
 </body>
