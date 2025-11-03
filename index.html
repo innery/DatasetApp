@@ -4,98 +4,107 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Atık Veri Yükleyici</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: sans-serif; max-width: 720px; margin: 24px auto; }
-    label { display:block; margin-top:12px; }
-    .row { margin: 10px 0; }
-    .ok { color: green; }
-    .err { color: red; }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    button { padding: 10px 14px; }
-    select, input[type="file"], input[type="password"] { width: 100%; padding: 8px; }
+    .fade-in { animation: fadeIn 0.3s ease-in-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
-<body>
-  <h2>Atık Veri Yükleyici</h2>
+<body class="bg-gray-50 text-gray-900 flex items-center justify-center min-h-screen">
 
-  <div class="row">
-    <label>Upload kodu (şifre):</label>
-    <input id="pass" type="password" placeholder="Takım içi şifre">
-  </div>
+  <div class="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md fade-in">
+    <h1 class="text-2xl font-bold text-center mb-2 text-blue-600">Atık Veri Yükleyici</h1>
+    <p class="text-center text-gray-500 mb-6">Supabase üzerinden sınıf bazlı fotoğraf yükleme</p>
 
-  <div class="grid">
-    <div>
-      <label>Sınıf seç</label>
-      <select id="cls">
-        <option>paper</option><option>plastic</option><option>glass</option><option>metal</option>
-        <option>organic</option><option>non_recyclable</option><option>food</option><option>bread</option>
-      </select>
+    <!-- Upload Kodu -->
+    <label class="block mb-3">
+      <span class="font-semibold text-gray-700">Takım İçi Şifre</span>
+      <input id="pass" type="password" placeholder="Upload kodu" 
+             class="mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none" />
+    </label>
+
+    <!-- Grid -->
+    <div class="grid grid-cols-2 gap-4">
+      <label class="block">
+        <span class="font-semibold text-gray-700">Sınıf Seç</span>
+        <select id="cls" 
+          class="mt-1 w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-400 outline-none">
+          <option>paper</option><option>plastic</option><option>glass</option><option>metal</option>
+          <option>organic</option><option>non_recyclable</option><option>food</option><option>bread</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="font-semibold text-gray-700">Fotoğraf</span>
+        <input id="file" type="file" accept="image/*" capture="environment"
+               class="mt-1 w-full border rounded-lg px-3 py-2 cursor-pointer focus:ring-2 focus:ring-blue-400 outline-none" />
+      </label>
     </div>
-    <div>
-      <label>Fotoğraf</label>
-      <input id="file" type="file" accept="image/*" capture="environment">
-    </div>
+
+    <!-- Yükle Butonu -->
+    <button id="btn"
+      class="mt-6 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
+      📤 Yükle
+    </button>
+
+    <!-- Durum Alanı -->
+    <div id="status" class="hidden mt-4 text-sm font-medium text-center rounded-lg p-3"></div>
   </div>
 
-  <div class="row">
-    <button id="btn">Yükle</button>
-  </div>
-
-  <p id="out"></p>
-
-  <!-- Supabase JS (CDN) -->
+  <!-- Supabase -->
   <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
   <script>
-  // === 1) BURALARI DOLDUR ===
-  const SUPABASE_URL = "https://nfkkvmnyjmefdwqjbqsl.supabase.co";         // örn: https://abcd.supabase.co
-  const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ma2t2bW55am1lZmR3cWpicXNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MTQ0NTEsImV4cCI6MjA3NzM5MDQ1MX0.M0aGFVDb_OqiAyp1t8j2RWt5pfG1wgl7pjSG879j1Jg";  // uzun key
-  const TEAM_UPLOAD_CODE = "12345";    // takım içi şifre (minimum koruma)
+    // Supabase bilgilerin
+    const SUPABASE_URL = "https://nfkkvmnyjmefdwqjbqsl.supabase.co";
+    const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ma2t2bW55am1lZmR3cWpicXNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MTQ0NTEsImV4cCI6MjA3NzM5MDQ1MX0.M0aGFVDb_OqiAyp1t8j2RWt5pfG1wgl7pjSG879j1Jg";
+    const TEAM_UPLOAD_CODE = "12345";
+    const BUCKET_NAME = "Dataset"; // harfler tam paneldekiyle aynı olmalı
 
-  // === 2) Supabase client ===
-  const supabase = supabasejs.createClient(SUPABASE_URL, SUPABASE_ANON);
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-  // === 3) Yardımcı: Zaman damgası ve güvenli dosya adı ===
-  function ts(){ const d = new Date();
-    const pad = n => String(n).padStart(2,"0");
-    return d.getFullYear()+""+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
-  }
-  function safeName(name){
-    return name.replace(/[^a-zA-Z0-9._-]/g, "_").toLowerCase();
-  }
-
-  // === 4) Yükleme ===
-  document.getElementById('btn').onclick = async () => {
-    const out = document.getElementById('out'); out.className=""; out.textContent="";
-    const pwd = document.getElementById('pass').value.trim();
-    if (pwd !== TEAM_UPLOAD_CODE){ out.className="err"; out.textContent="Hatalı upload kodu."; return; }
-
-    const file = document.getElementById('file').files[0];
-    if(!file){ out.className="err"; out.textContent="Lütfen bir fotoğraf seç."; return; }
-
-    const cls = document.getElementById('cls').value;
-    const ext = file.name.split('.').pop().toLowerCase();
-    const allowed = ["jpg","jpeg","png","webp"];
-    if(!allowed.includes(ext)){ out.className="err"; out.textContent="Sadece jpg/jpeg/png/webp yükleyin."; return; }
-
-    // path: dataset/<class>/<class>_YYYYMMDD_HHMMSS_random.ext
-    const rand = Math.random().toString(36).slice(2,7);
-    const path = `${cls}/${cls}_${ts()}_${rand}.${ext}`;
-
-    // upload
-    out.textContent = "Yükleniyor...";
-    const { data, error } = await supabase.storage.from('dataset').upload(path, file, {
-      cacheControl: '3600',
-      upsert: false
-    });
-
-    if(error){
-      out.className="err"; out.textContent = "Hata: " + error.message; return;
+    const statusEl = document.getElementById("status");
+    function showStatus(type, msg){
+      statusEl.classList.remove("hidden");
+      statusEl.className = `mt-4 text-sm font-medium text-center rounded-lg p-3 fade-in ${
+        type==="ok" ? "bg-green-100 text-green-800" :
+        type==="err" ? "bg-red-100 text-red-800" :
+        "bg-blue-100 text-blue-800"
+      }`;
+      statusEl.innerHTML = msg;
     }
-    // Public URL
-    const { data: pub } = supabase.storage.from('dataset').getPublicUrl(path);
-    out.className="ok";
-    out.innerHTML = `Yüklendi: <code>${path}</code><br><a href="${pub.publicUrl}" target="_blank">Görüntüle</a>`;
-  };
+
+    function ts() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2,"0");
+      return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+"_"+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());
+    }
+
+    document.getElementById("btn").onclick = async () => {
+      const pwd = document.getElementById("pass").value.trim();
+      if(pwd !== TEAM_UPLOAD_CODE){ showStatus("err","❌ Hatalı şifre."); return; }
+
+      const file = document.getElementById("file").files[0];
+      if(!file){ showStatus("err","❌ Lütfen bir fotoğraf seç."); return; }
+
+      const ext = file.name.split(".").pop().toLowerCase();
+      if(!["jpg","jpeg","png","webp"].includes(ext)){ showStatus("err","❌ Sadece jpg/jpeg/png/webp yükleyin."); return; }
+
+      const cls = document.getElementById("cls").value;
+      const rand = Math.random().toString(36).slice(2,7);
+      const path = `${cls}/${cls}_${ts()}_${rand}.${ext}`;
+
+      showStatus("load","⏳ Yükleniyor...");
+      const { data, error } = await supabase.storage.from(BUCKET_NAME).upload(path, file);
+
+      if(error){ showStatus("err","❌ Hata: " + error.message); return; }
+
+      const { data: pub } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
+      showStatus("ok",`✅ <b>Yüklendi!</b><br><a href="${pub.publicUrl}" target="_blank" class="underline">${pub.publicUrl}</a>`);
+    };
   </script>
 </body>
 </html>
